@@ -1,0 +1,16 @@
+version: "3.9"
+
+networks:
+  dedupphoto:
+    external: false
+
+services:
+  dedupphoto:
+    image: happyz/dedupphoto:latest
+    ports:
+      - "8989:8888"
+    restart: on-failure:5
+    volumes:
+      - <some volume>:/myfolder:ro
+    networks:
+      - dedupphoto
