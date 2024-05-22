@@ -82,7 +82,7 @@ func getImageFilesAndEncode(folder string, recursive bool) (map[uint64][]string,
 			}
 			hash, err := calculateHash(fullPath)
 			if err != nil {
-				fmt.Println(fmt.Errorf("skip image %s due to error %v", fullPath, err))
+				fmt.Println(fmt.Errorf("skip image %s due to error: %v", fullPath, err))
 				return nil
 			}
 			imagePaths = append(imagePaths, fullPath)
@@ -90,7 +90,7 @@ func getImageFilesAndEncode(folder string, recursive bool) (map[uint64][]string,
 
 			// print if already identified as a duplicate
 			if len(imageHashes[hash]) > 1 {
-				fmt.Printf("found a new potential duplicate: %s\n", fullPath)
+				fmt.Printf("found image %d to be a new potential duplicate: %s\n", len(imagePaths), fullPath)
 			}
 		}
 		return nil
