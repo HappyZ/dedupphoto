@@ -59,12 +59,16 @@ func getImageFilesAndEncode(folder string, recursive bool) (map[uint64][]string,
 			return filepath.SkipDir
 		}
 		if !info.IsDir() && isImageFile(path) {
-			imagePaths = append(imagePaths, path)
+			fullPath, err := filepath.Abs(path) // Get absolute path
+			if err != nil {
+				return err
+			}
+			imagePaths = append(imagePaths, fullPath)
 			hash, err := calculateHash(path)
 			if err != nil {
 				return err
 			}
-			imageHashes[hash] = append(imageHashes[hash], path)
+			imageHashes[hash] = append(imageHashes[hash], fullPath)
 		}
 		return nil
 	})

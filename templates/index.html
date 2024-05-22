@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Duplicate Files</title>
+    <style>
+        .hidden-image {
+            display: none;
+            position: absolute;
+            z-index: 1;
+            max-width: 200px; /* Adjust max-width as needed */
+            padding: 5px;
+            border: 1px solid #ddd;
+            background-color: white;
+        }
+
+        li:hover .hidden-image {
+            display: block;
+        }
+
+        .hidden-image img {
+            width: 100%; /* Adjust image width as needed */
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Duplicate Files</h1>
+    <ul>
+        {{ range $index, $data := . }}
+        <li><b>Hash:</b> {{ $data.Hash }}</li>
+        <ul>
+            {{ range $index, $file := $data.Files }}
+            <li>
+                <a>{{ $file }}</a>
+                <span class="hidden-image">
+                    <img src="data:{{ mimeType $file }};base64,{{ base64encode $file }}">
+                </span>
+            </li>
+            {{ end }}
+        </ul>
+        {{ end }}
+    </ul>
+</body>
+
+</html>
