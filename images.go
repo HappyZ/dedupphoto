@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"os"
 	"path/filepath"
@@ -27,13 +28,13 @@ func isImageFile(path string) bool {
 func calculateHash(filePath string) (uint64, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("fail to open file %s: %v", filePath, err)
 	}
 	defer file.Close()
 
 	img, _, err := image.Decode(file)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("fail to decode image %s: %v", filePath, err)
 	}
 	// TODO(happyz): replace below with more accurate model.
 	// Here we use phash algorithm to detect image diff.
@@ -63,11 +64,12 @@ func getImageFilesAndEncode(folder string, recursive bool) (map[uint64][]string,
 			if err != nil {
 				return err
 			}
-			imagePaths = append(imagePaths, fullPath)
-			hash, err := calculateHash(path)
+			hash, err := calculateHash(fullPath)
 			if err != nil {
-				return err
+				fmt.Println(fmt.Errorf("skip image %s due to error %v", fullPath, err))
+				return nil
 			}
+			imagePaths = append(imagePaths, fullPath)
 			imageHashes[hash] = append(imageHashes[hash], fullPath)
 		}
 		return nil

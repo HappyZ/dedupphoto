@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,9 @@ import (
 	"path/filepath"
 	"strings"
 )
+
+//go:embed templates/*.html
+var content embed.FS
 
 func mimeType(path string) string {
 	return mime.TypeByExtension(filepath.Ext(path))
@@ -27,7 +31,7 @@ func base64encode(path string) (string, error) {
 
 func indexHTMLHandler(w http.ResponseWriter, jsonData []DuplicatedImageData) {
 	// Parse and serve HTML template
-	tmpl, err := template.ParseFiles("templates/index.html")
+	tmpl, err := template.ParseFS(content, "templates/index.html")
 	if err != nil {
 		fmt.Fprintf(w, "failed to parse html template: %v", err)
 		return
@@ -40,20 +44,18 @@ func indexHTMLHandler(w http.ResponseWriter, jsonData []DuplicatedImageData) {
 	}
 }
 
-func handler(w http.ResponseWriter, r *http.Request, jsonFilepath string) {
+func handler(w http.ResponseWriter, r *http.Request, data map[uint64][]string) {
 	if r.URL.Path == "/" {
-		data, err := os.ReadFile(jsonFilepath)
-		if err != nil {
-			fmt.Fprintf(w, "failed to read file %s: %v", jsonFilepath, err)
-			return
+		var jsonData []DuplicatedImageData
+
+		for hash, files := range data {
+			imageData := DuplicatedImageData{
+				Hash:  fmt.Sprintf("%d", hash),
+				Files: files,
+			}
+			jsonData = append(jsonData, imageData)
 		}
 
-		var jsonData []DuplicatedImageData
-		err = json.Unmarshal(data, &jsonData)
-		if err != nil {
-			fmt.Fprintf(w, "failed to parse json file %s: %v", jsonFilepath, err)
-			return
-		}
 		indexHTMLHandler(w, jsonData)
 	} else if strings.HasPrefix(r.URL.Path, "/image") {
 		filePath := r.URL.Query().Get("path")
@@ -89,9 +91,9 @@ func handler(w http.ResponseWriter, r *http.Request, jsonFilepath string) {
 	}
 }
 
-func webserverHandler(jsonFilepath string) {
+func webserverHandler(duplicates map[uint64][]string) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		handler(w, r, jsonFilepath)
+		handler(w, r, duplicates)
 	})
 
 	fmt.Println("Server listening on port 8888")
