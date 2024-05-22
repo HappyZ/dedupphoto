@@ -56,6 +56,17 @@ func getImageFilesAndEncode(folder string, recursive bool) (map[uint64][]string,
 		if err != nil {
 			return err
 		}
+
+		// Skip "@eaDir" directories in Synology NAS
+		if info.IsDir() && info.Name() == "@eaDir" {
+			return filepath.SkipDir
+		}
+
+		// Skip hidden directories
+		if info.IsDir() && strings.HasPrefix(info.Name(), ".") {
+			return filepath.SkipDir
+		}
+
 		if info.IsDir() && !recursive && path != folder {
 			return filepath.SkipDir
 		}
