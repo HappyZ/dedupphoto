@@ -70,6 +70,11 @@ func getImageFilesAndEncode(folder string, recursive bool) (map[uint64][]string,
 		if info.IsDir() && !recursive && path != folder {
 			return filepath.SkipDir
 		}
+
+		if info.IsDir() {
+			fmt.Printf("searching in folder: %s\n", info.Name())
+		}
+
 		if !info.IsDir() && isImageFile(path) {
 			fullPath, err := filepath.Abs(path) // Get absolute path
 			if err != nil {
@@ -82,6 +87,11 @@ func getImageFilesAndEncode(folder string, recursive bool) (map[uint64][]string,
 			}
 			imagePaths = append(imagePaths, fullPath)
 			imageHashes[hash] = append(imageHashes[hash], fullPath)
+
+			// print if already identified as a duplicate
+			if len(imageHashes[hash]) > 1 {
+				fmt.Printf("found a new potential duplicate: %s\n", fullPath)
+			}
 		}
 		return nil
 	})
