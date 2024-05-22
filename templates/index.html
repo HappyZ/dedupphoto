@@ -5,18 +5,15 @@
     <meta charset="UTF-8">
     <title>Duplicate Files</title>
     <style>
-        .hidden-image {
+        .hidden {
             display: none;
-            position: absolute;
-            z-index: 1;
+        }
+
+        .hidden-image {
             max-width: 200px; /* Adjust max-width as needed */
             padding: 5px;
             border: 1px solid #ddd;
             background-color: white;
-        }
-
-        li:hover .hidden-image {
-            display: block;
         }
 
         .hidden-image img {
@@ -26,22 +23,68 @@
 </head>
 
 <body>
-    <h1>Duplicate Files</h1>
-    <ul>
+    <h1>Duplicated Files</h1>
+    <ul id="hashList">
         {{ range $index, $data := . }}
-        <li><b>Hash:</b> {{ $data.Hash }}</li>
-        <ul>
-            {{ range $index, $file := $data.Files }}
-            <li>
-                <a>{{ $file }}</a>
-                <span class="hidden-image">
-                    <img src="data:{{ mimeType $file }};base64,{{ base64encode $file }}">
-                </span>
-            </li>
-            {{ end }}
-        </ul>
+        <li>
+            <b>Hash:</b> <span class="hash">{{ $data.Hash }}</span>
+            <ul class="hidden">
+                {{ range $index, $file := $data.Files }}
+                <li>
+                    <a>{{ $file }}</a>
+                    <div class="hidden-image"></div>
+                </li>
+                {{ end }}
+            </ul>
+        </li>
         {{ end }}
     </ul>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            var hashElements = document.querySelectorAll(".hash");
+
+            hashElements.forEach(function (hashElement) {
+                hashElement.addEventListener("click", function () {
+                    var parentElement = hashElement.parentElement;
+                    var fileList = parentElement.querySelector("ul");
+                    var files = fileList.querySelectorAll("li");
+
+                    if (fileList.classList.contains("hidden")) {
+                        fetchFiles(files);
+                    }
+
+                    fileList.classList.toggle("hidden");
+                });
+            });
+
+            function fetchFiles(files) {
+                files.forEach(function (fileElement) {
+                    var fileAnchor = fileElement.querySelector("a");
+                    var filePath = fileAnchor.textContent.trim();
+
+                    fetchImageData(filePath)
+                        .then(function (imageData) {
+                            var imageContainer = fileElement.querySelector(".hidden-image");
+                            imageContainer.innerHTML = '<img src="data:' + imageData.mime + ';base64,' + imageData.data + '">';
+                        })
+                        .catch(function (error) {
+                            console.error("Error fetching image data:", error);
+                        });
+                });
+            }
+
+            function fetchImageData(filePath) {
+                return fetch("image?path=" + encodeURIComponent(filePath))
+                    .then(function (response) {
+                        if (!response.ok) {
+                            throw new Error("Failed to fetch image data");
+                        }
+                        return response.json();
+                    });
+            }
+        });
+    </script>
 </body>
 
 </html>
