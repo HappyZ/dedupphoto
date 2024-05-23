@@ -6,7 +6,7 @@ networks:
 
 services:
   dedupphoto:
-    image: happyz/dedupphoto:latest
+    image: happyzyz/dedupphoto:latest
     ports:
       - "8989:8888"
     restart: on-failure:5
