@@ -47,12 +47,14 @@ func calculateHash(filePath string) (uint64, error) {
 	return hash.GetHash(), nil
 }
 
-// getImageFilesAndEncode encodes images to a hash map and returns it
-func getImageFilesAndEncode(folder string, recursive bool) (map[uint64][]string, []string, error) {
-	var imagePaths []string
-	var imageHashes = make(map[uint64][]string)
+// duplicatedImageFinder walks through a given folder in Config and creates a hash map for each image
+func duplicatedImageFinder(config Config) error {
+	count := uint64(0)
 
-	err := filepath.Walk(folder, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(config.Folder, func(path string, info os.FileInfo, err error) error {
+		mu.Lock()
+		defer mu.Unlock()
+
 		if err != nil {
 			return err
 		}
@@ -67,7 +69,7 @@ func getImageFilesAndEncode(folder string, recursive bool) (map[uint64][]string,
 			return filepath.SkipDir
 		}
 
-		if info.IsDir() && !recursive && path != folder {
+		if info.IsDir() && !config.IsRecursive && path != config.Folder {
 			return filepath.SkipDir
 		}
 
@@ -85,20 +87,22 @@ func getImageFilesAndEncode(folder string, recursive bool) (map[uint64][]string,
 				fmt.Println(fmt.Errorf("skip image %s due to error: %v", fullPath, err))
 				return nil
 			}
-			imagePaths = append(imagePaths, fullPath)
+			count += 1
 			imageHashes[hash] = append(imageHashes[hash], fullPath)
 
 			// print if already identified as a duplicate
 			if len(imageHashes[hash]) > 1 {
-				fmt.Printf("found image %d to be a new potential duplicate: %s\n", len(imagePaths), fullPath)
+				fmt.Printf("%dth image seems to be a new duplicate: %s\n", count, fullPath)
 			}
 		}
 		return nil
 	})
 
 	if err != nil {
-		return imageHashes, imagePaths, err
+		return err
 	}
 
-	return imageHashes, imagePaths, nil
+	fmt.Println("went through in total", count, "images")
+
+	return nil
 }

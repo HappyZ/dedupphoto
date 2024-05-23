@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"log"
 	"mime"
 	"net/http"
 	"os"
@@ -17,10 +16,6 @@ import (
 //go:embed templates/*.html
 var content embed.FS
 
-func mimeType(path string) string {
-	return mime.TypeByExtension(filepath.Ext(path))
-}
-
 func base64encode(path string) (string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -29,7 +24,7 @@ func base64encode(path string) (string, error) {
 	return base64.StdEncoding.EncodeToString(data), nil
 }
 
-func indexHTMLHandler(w http.ResponseWriter, jsonData []DuplicatedImageData) {
+func indexHTMLHandler(w http.ResponseWriter, jsonData []DuplicatedImageJsonData) {
 	// Parse and serve HTML template
 	tmpl, err := template.ParseFS(content, "templates/index.html")
 	if err != nil {
@@ -44,42 +39,30 @@ func indexHTMLHandler(w http.ResponseWriter, jsonData []DuplicatedImageData) {
 	}
 }
 
-func handler(w http.ResponseWriter, r *http.Request, data map[uint64][]string) {
+func handler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" {
-		var jsonData []DuplicatedImageData
-
-		for hash, files := range data {
-			imageData := DuplicatedImageData{
-				Hash:  fmt.Sprintf("%d", hash),
-				Files: files,
-			}
-			jsonData = append(jsonData, imageData)
-		}
-
+		jsonData := generateDuplicatedImageJsonData()
 		indexHTMLHandler(w, jsonData)
 	} else if strings.HasPrefix(r.URL.Path, "/image") {
-		filePath := r.URL.Query().Get("path")
-		if filePath == "" {
+		path := r.URL.Query().Get("path")
+		if path == "" {
 			http.Error(w, "Missing file path", http.StatusBadRequest)
 			return
 		}
 
-		data, err := base64encode(filePath)
+		data, err := base64encode(path)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to encode file: %v", err), http.StatusInternalServerError)
 			return
 		}
 
-		mimeType := mimeType(filePath)
+		mimeType := mime.TypeByExtension(filepath.Ext(path))
 		if mimeType == "" {
 			http.Error(w, "Unsupported file type", http.StatusBadRequest)
 			return
 		}
 
-		imageData := struct {
-			Mime string `json:"mime"`
-			Data string `json:"data"`
-		}{
+		imageData := WebImageData{
 			Mime: mimeType,
 			Data: data,
 		}
@@ -91,11 +74,32 @@ func handler(w http.ResponseWriter, r *http.Request, data map[uint64][]string) {
 	}
 }
 
-func webserverHandler(duplicates map[uint64][]string) {
+func generateDuplicatedImageJsonData() []DuplicatedImageJsonData {
+	mu.Lock()
+	defer mu.Unlock()
+
+	var jsonData []DuplicatedImageJsonData
+
+	for hash, files := range imageHashes {
+		// skip if no duplicates
+		if len(files) < 2 {
+			continue
+		}
+		imageData := DuplicatedImageJsonData{
+			Hash:  fmt.Sprintf("%d", hash),
+			Files: files,
+		}
+		jsonData = append(jsonData, imageData)
+	}
+
+	return jsonData
+}
+
+func webServer() error {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		handler(w, r, duplicates)
+		handler(w, r)
 	})
 
 	fmt.Println("Server listening on port 8888")
-	log.Fatal(http.ListenAndServe(":8888", nil))
+	return http.ListenAndServe(":8888", nil)
 }

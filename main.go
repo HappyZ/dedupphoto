@@ -8,18 +8,6 @@ import (
 	"log"
 )
 
-// Config holds configuration options for the program
-type Config struct {
-	Folder      string
-	IsRecursive bool
-	DryRun      bool
-}
-
-type DuplicatedImageData struct {
-	Hash  string   `json:"hash"`
-	Files []string `json:"files"`
-}
-
 func parseFlags() Config {
 	var config Config
 
@@ -50,19 +38,22 @@ func main() {
 		return
 	}
 
-	imageHashes, imagePaths, err := getImageFilesAndEncode(config.Folder, config.IsRecursive)
-	if err != nil {
-		log.Fatalln(fmt.Errorf("fail to get images and encode: %v", err))
-		return
-	}
+	errChan := make(chan error, 2)
 
-	fmt.Printf("went through %d images in total\n", len(imagePaths))
-	duplicates := make(map[uint64][]string)
-	for hash, paths := range imageHashes {
-		if len(paths) > 1 {
-			duplicates[hash] = paths
+	// run concurrent web server
+	go func() {
+		errChan <- webServer()
+	}()
+
+	// run concurrent image finder
+	go func() {
+		errChan <- duplicatedImageFinder(config)
+	}()
+
+	// Wait for both goroutines to finish
+	for i := 0; i < 2; i++ {
+		if err := <-errChan; err != nil {
+			log.Fatalln("error:", err)
 		}
 	}
-
-	webserverHandler(duplicates)
 }
