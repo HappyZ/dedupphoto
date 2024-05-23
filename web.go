@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"mime"
 	"net/http"
 	"os"
@@ -61,10 +62,46 @@ func deleteImage(path string, hash uint64, config Config) error {
 		filename := filepath.Base(path)
 		destinationPath := filepath.Join(config.TrashBin, filename)
 
-		// Move the file to the destination folder
-		err := os.Rename(path, destinationPath)
+		// Check if source and destination are on the same device
+		source := filepath.Dir(path)
+		dest := filepath.Dir(destinationPath)
+		srcStat, err := os.Stat(source)
 		if err != nil {
-			return fmt.Errorf("failed to move file to %s: %v", config.TrashBin, err)
+			return fmt.Errorf("failed to get source directory information: %v", err)
+		}
+		destStat, err := os.Stat(dest)
+		if err != nil {
+			return fmt.Errorf("failed to get destination directory information: %v", err)
+		}
+		if !os.SameFile(srcStat, destStat) {
+			// Source and destination are on different devices, so copy and remove
+			srcFile, err := os.Open(path)
+			if err != nil {
+				return fmt.Errorf("failed to open source file: %v", err)
+			}
+			defer srcFile.Close()
+
+			destFile, err := os.Create(destinationPath)
+			if err != nil {
+				return fmt.Errorf("failed to create destination file: %v", err)
+			}
+			defer destFile.Close()
+
+			_, err = io.Copy(destFile, srcFile)
+			if err != nil {
+				return fmt.Errorf("failed to copy file: %v", err)
+			}
+
+			err = os.Remove(path)
+			if err != nil {
+				return fmt.Errorf("failed to remove original file: %v", err)
+			}
+		} else {
+			// Source and destination are on the same device, so simply rename
+			err := os.Rename(path, destinationPath)
+			if err != nil {
+				return fmt.Errorf("failed to move file to %s: %v", config.TrashBin, err)
+			}
 		}
 	}
 
