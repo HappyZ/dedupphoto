@@ -10,14 +10,30 @@
         }
 
         .hidden-image {
-            max-width: 200px; /* Adjust max-width as needed */
+            max-width: 200px;
+            /* Adjust max-width as needed */
             padding: 5px;
             border: 1px solid #ddd;
             background-color: white;
         }
 
         .hidden-image img {
-            width: 100%; /* Adjust image width as needed */
+            width: 100%;
+            /* Adjust image width as needed */
+        }
+
+        .delete-button {
+            cursor: pointer;
+            color: red;
+            margin-left: 10px;
+        }
+
+        .success-message {
+            color: green;
+        }
+
+        .error-message {
+            color: red;
         }
     </style>
 </head>
@@ -32,6 +48,8 @@
                 {{ range $index, $file := $data.Files }}
                 <li>
                     <a>{{ $file }}</a>
+                    <button class="delete-button">Delete</button>
+                    <div class="response"></div>
                     <div class="hidden-image"></div>
                 </li>
                 {{ end }}
@@ -58,6 +76,18 @@
                 });
             });
 
+            var deleteButtons = document.querySelectorAll(".delete-button");
+
+            deleteButtons.forEach(function (button) {
+                button.addEventListener("click", function (event) {
+                    var fileElement = button.parentElement;
+                    var fileAnchor = fileElement.querySelector("a");
+                    var filePath = fileAnchor.textContent.trim();
+                    var responseDiv = fileElement.querySelector(".response");
+                    deleteFile(filePath, responseDiv);
+                });
+            });
+
             function fetchFiles(files) {
                 files.forEach(function (fileElement) {
                     var fileAnchor = fileElement.querySelector("a");
@@ -81,6 +111,28 @@
                             throw new Error("Failed to fetch image data");
                         }
                         return response.json();
+                    });
+            }
+
+            function deleteFile(filePath, responseDiv) {
+                fetch("delete?path=" + encodeURIComponent(filePath), {
+                    method: "DELETE"
+                })
+                    .then(function (response) {
+                        if (response.ok) {
+                            responseDiv.textContent = "Deleted successfully";
+                            responseDiv.classList.add("success-message");
+                        } else {
+                            response.json().then(function (data) {
+                                responseDiv.textContent = "Failed to delete: " + data.error;
+                                responseDiv.classList.add("error-message");
+                            });
+                        }
+                    })
+                    .catch(function (error) {
+                        console.error("Error deleting file:", error);
+                        responseDiv.textContent = "Failed to delete: " + error.message;
+                        responseDiv.classList.add("error-message");
                     });
             }
         });

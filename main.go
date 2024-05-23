@@ -12,6 +12,7 @@ func parseFlags() Config {
 	var config Config
 
 	flag.StringVar(&config.Folder, "folder", "", "folder to find all images")
+	flag.StringVar(&config.TrashBin, "trashbin", "", "when delete, we move duplicated images to the specified trash bin folder, or if empty we delete those")
 	flag.BoolVar(&config.IsRecursive, "recursive", true, "whether find images in nested folders")
 	flag.BoolVar(&config.DryRun, "dryrun", true, "print the dryrun message")
 
@@ -32,6 +33,11 @@ func main() {
 	if config.IsRecursive {
 		fmt.Println("search in nested folders as well")
 	}
+	if config.TrashBin == "" {
+		fmt.Println("deletion will actually delete the duplicated image")
+	} else {
+		fmt.Println("deletion will only move duplicated ones to", config.TrashBin)
+	}
 
 	if config.DryRun {
 		fmt.Println("please run with --dryrun=false")
@@ -42,7 +48,7 @@ func main() {
 
 	// run concurrent web server
 	go func() {
-		errChan <- webServer()
+		errChan <- webServer(config)
 	}()
 
 	// run concurrent image finder

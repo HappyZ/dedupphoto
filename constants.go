@@ -5,6 +5,7 @@ import "sync"
 // Config holds configuration options for the program
 type Config struct {
 	Folder      string
+	TrashBin    string
 	IsRecursive bool
 	DryRun      bool
 }
