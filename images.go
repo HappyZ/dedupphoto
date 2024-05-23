@@ -6,8 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/corona10/goimagehash" // Import the goimagehash library
+	"github.com/fsnotify/fsnotify"
 )
 
 var extensions = []string{".jpg", ".jpeg", ".png", ".gif", ".bmp"}
@@ -50,11 +52,9 @@ func calculateHash(filePath string) (uint64, error) {
 // duplicatedImageFinder walks through a given folder in Config and creates a hash map for each image
 func duplicatedImageFinder(config Config) error {
 	count := uint64(0)
+	countSkipped := uint64(0)
 
 	err := filepath.Walk(config.Folder, func(path string, info os.FileInfo, err error) error {
-		mu.Lock()
-		defer mu.Unlock()
-
 		if err != nil {
 			return err
 		}
@@ -83,12 +83,17 @@ func duplicatedImageFinder(config Config) error {
 				return err
 			}
 			hash, err := calculateHash(fullPath)
+			count += 1
+
 			if err != nil {
+				countSkipped += 1
 				fmt.Println(fmt.Errorf("skip image %s due to error: %v", fullPath, err))
 				return nil
 			}
-			count += 1
+
+			mu.Lock()
 			imageHashes[hash] = append(imageHashes[hash], fullPath)
+			mu.Unlock()
 
 			// print if already identified as a duplicate
 			if len(imageHashes[hash]) > 1 {
@@ -102,7 +107,58 @@ func duplicatedImageFinder(config Config) error {
 		return err
 	}
 
-	fmt.Println("went through in total", count, "images")
+	fmt.Println("went through in total", count, "images, skipped", countSkipped)
 
 	return nil
+}
+
+func folderMonitor(config Config) error {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+
+	err = watcher.Add(config.Folder)
+	if err != nil {
+		return err
+	}
+	for {
+		select {
+		case event, ok := <-watcher.Events:
+			if !ok {
+				return fmt.Errorf("folderMonitor() watcher closed unexpectedly")
+			}
+			if event.Op&fsnotify.Create == fsnotify.Create {
+				time.Sleep(time.Second) // wait for the file to be fully written
+
+				fullPath, err := filepath.Abs(event.Name) // Get absolute path
+				if err != nil {
+					return err
+				}
+				fmt.Println("found a new file added", fullPath)
+
+				hash, err := calculateHash(fullPath)
+
+				if err != nil {
+					fmt.Println(fmt.Errorf("skip image %s due to error: %v", fullPath, err))
+					return nil
+				}
+
+				mu.Lock()
+				imageHashes[hash] = append(imageHashes[hash], fullPath)
+				mu.Unlock()
+
+				// print if already identified as a duplicate
+				if len(imageHashes[hash]) > 1 {
+					fmt.Println("the image seems to be a new duplicate")
+				}
+			}
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return fmt.Errorf("folderMonitor() watcher closed unexpectedly")
+			}
+			fmt.Println("folderMonitor() error:", err)
+		}
+	}
 }

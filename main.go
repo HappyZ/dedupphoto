@@ -50,8 +50,13 @@ func main() {
 		errChan <- duplicatedImageFinder(config)
 	}()
 
+	// run concurrent image monitor
+	go func() {
+		errChan <- folderMonitor(config)
+	}()
+
 	// Wait for both goroutines to finish
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 3; i++ {
 		if err := <-errChan; err != nil {
 			log.Fatalln("error:", err)
 		}
