@@ -99,7 +99,10 @@
                     fetchImageData(filePath)
                         .then(function (imageData) {
                             var imageContainer = fileElement.querySelector(".hidden-image");
-                            imageContainer.innerHTML = '<img src="data:' + imageData.mime + ';base64,' + imageData.data + '">';
+                            imageContainer.innerHTML = '<img src="data:' + imageData.mime + ';base64,'
+                                + imageData.data + '">'
+                                + '<div>' + imageData.size + '</div>'
+                                + '<div>' + imageData.createtime + '</div>';
                         })
                         .catch(function (error) {
                             console.error("Error fetching image data:", error);

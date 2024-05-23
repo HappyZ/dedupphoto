@@ -104,9 +104,21 @@ func handler(w http.ResponseWriter, r *http.Request, config Config) {
 			return
 		}
 
+		// Retrieve file information
+		fileInfo, err := os.Stat(path)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to get file information: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		size := fmt.Sprintf("%d bytes", fileInfo.Size())
+		createTime := fileInfo.ModTime().Format("2006-01-02 15:04:05")
+
 		imageData := WebImageData{
-			Mime: mimeType,
-			Data: data,
+			Mime:       mimeType,
+			Data:       data,
+			Size:       size,
+			CreateTime: createTime,
 		}
 
 		w.Header().Set("Content-Type", "application/json")

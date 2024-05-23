@@ -18,8 +18,10 @@ type DuplicatedImageJsonData struct {
 
 // WebImageData holds data structure for web images
 type WebImageData struct {
-	Mime string `json:"mime"`
-	Data string `json:"data"`
+	Mime       string `json:"mime"`
+	Data       string `json:"data"`
+	Size       string `json:"size"`
+	CreateTime string `json:"createtime"`
 }
 
 // Mutex for concurrency
