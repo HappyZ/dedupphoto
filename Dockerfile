@@ -17,4 +17,4 @@ FROM scratch
 COPY --from=builder /tmp/dedupphoto /dedupphoto
 
 # Command to run the executable with arguments
-CMD ["/dedupphoto", "--folder", "/myfolder", "--dryrun=false"]
+CMD ["/dedupphoto", "--folder", "/myfolder", "--dryrun=false", "--trashbin", "/mytrashbin"]

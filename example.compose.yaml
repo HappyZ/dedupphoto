@@ -11,6 +11,7 @@ services:
       - "8989:8888"
     restart: on-failure:5
     volumes:
-      - <some volume>:/myfolder:ro
+      - <some volume>:/myfolder:rw
+      - <some volume>:/mytrashbin:rw
     networks:
       - dedupphoto
