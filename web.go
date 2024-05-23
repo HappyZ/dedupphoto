@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -39,14 +40,15 @@ func indexHTMLHandler(w http.ResponseWriter, jsonData []DuplicatedImageJsonData)
 	}
 }
 
-func deleteImage(path string, config Config) error {
+func deleteImage(path string, hash uint64, config Config) error {
 	// Check if the file exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return fmt.Errorf("file does not exist: %s", path)
 	}
 
-	// Extract the filename from the path
-	filename := filepath.Base(path)
+	if _, ok := imageHashes[hash]; !ok {
+		return fmt.Errorf("hash does not exist: %d", hash)
+	}
 
 	if config.TrashBin == "" {
 		// delete image
@@ -56,6 +58,7 @@ func deleteImage(path string, config Config) error {
 		}
 	} else {
 		// move image otherwise
+		filename := filepath.Base(path)
 		destinationPath := filepath.Join(config.TrashBin, filename)
 
 		// Move the file to the destination folder
@@ -64,6 +67,16 @@ func deleteImage(path string, config Config) error {
 			return fmt.Errorf("failed to move file to %s: %v", config.TrashBin, err)
 		}
 	}
+
+	mu.Lock()
+	var updatedFiles []string
+	for _, file := range imageHashes[hash] {
+		if file != path {
+			updatedFiles = append(updatedFiles, file)
+		}
+	}
+	imageHashes[hash] = updatedFiles
+	mu.Unlock()
 
 	return nil
 }
@@ -101,13 +114,24 @@ func handler(w http.ResponseWriter, r *http.Request, config Config) {
 	} else if strings.HasPrefix(r.URL.Path, "/delete") {
 		// Handle image deletion
 		path := r.URL.Query().Get("path")
+		hashString := r.URL.Query().Get("hash")
 		if path == "" {
 			http.Error(w, "missing file path", http.StatusBadRequest)
 			return
 		}
+		if hashString == "" {
+			http.Error(w, "missing hash value", http.StatusBadRequest)
+			return
+		}
+
+		hash, err := strconv.ParseUint(hashString, 10, 64)
+		if err != nil {
+			http.Error(w, "not a valid hash value", http.StatusBadRequest)
+			return
+		}
 
 		// Perform deletion operation
-		err := deleteImage(path, config)
+		err = deleteImage(path, hash, config)
 		if err != nil {
 			// Send error response as JSON
 			jsonResponse := map[string]string{"error": fmt.Sprintf("failed to delete image: %v", err)}

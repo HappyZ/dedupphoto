@@ -83,8 +83,11 @@
                     var fileElement = button.parentElement;
                     var fileAnchor = fileElement.querySelector("a");
                     var filePath = fileAnchor.textContent.trim();
+                    var hashElement = fileElement.parentElement.parentElement;
+                    var hashAnchor = hashElement.querySelector(".hash");
+                    var hashValue = hashAnchor.textContent.trim();
                     var responseDiv = fileElement.querySelector(".response");
-                    deleteFile(filePath, responseDiv);
+                    deleteFile(filePath, hashValue, responseDiv);
                 });
             });
 
@@ -114,8 +117,8 @@
                     });
             }
 
-            function deleteFile(filePath, responseDiv) {
-                fetch("delete?path=" + encodeURIComponent(filePath), {
+            function deleteFile(filePath, hashValue, responseDiv) {
+                fetch("delete?hash=" + encodeURIComponent(hashValue) + "&path=" + encodeURIComponent(filePath), {
                     method: "DELETE"
                 })
                     .then(function (response) {
