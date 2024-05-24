@@ -41,6 +41,53 @@ func indexHTMLHandler(w http.ResponseWriter, jsonData []DuplicatedImageJsonData)
 	}
 }
 
+// deleteAllImages does best effort deletion of any duplicates and keep the largest image
+func deleteAllImages(config Config) error {
+	mu.Lock()
+	defer mu.Unlock()
+	var err error
+	for hash, files := range imageHashes {
+		// skip if no duplicates
+		if len(files) < 2 {
+			continue
+		}
+
+		var largestFile string
+		var largestSize int64
+
+		for _, file := range files {
+			// retrieve file information
+			fileInfo, err := os.Stat(file)
+			if err != nil {
+				fmt.Printf("failed to get file info for %s, skipped: %v\n", file, err)
+				continue
+			}
+			fileSize := fileInfo.Size()
+
+			if fileSize > largestSize {
+				largestSize = fileSize
+				largestFile = file
+			}
+		}
+
+		var remainingFiles []string
+		for _, file := range files {
+			if file != largestFile {
+				err = deleteImage(file, hash, config)
+				if err != nil {
+					fmt.Printf("failed to delete image %s: %v\n", file, err)
+					remainingFiles = append(remainingFiles, file)
+				}
+			}
+		}
+
+		// update hash map here
+		imageHashes[hash] = []string{largestFile}
+		imageHashes[hash] = append(imageHashes[hash], remainingFiles...)
+	}
+	return err
+}
+
 func deleteImage(path string, hash uint64, config Config) error {
 	// Check if the file exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -104,17 +151,6 @@ func deleteImage(path string, hash uint64, config Config) error {
 			}
 		}
 	}
-
-	mu.Lock()
-	var updatedFiles []string
-	for _, file := range imageHashes[hash] {
-		if file != path {
-			updatedFiles = append(updatedFiles, file)
-		}
-	}
-	imageHashes[hash] = updatedFiles
-	mu.Unlock()
-
 	return nil
 }
 
@@ -192,8 +228,20 @@ func handler(w http.ResponseWriter, r *http.Request, config Config) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write(jsonResponseBytes)
+			fmt.Printf("failed to delete image %s: %v\n", path, err)
 			return
 		}
+
+		// update hash map
+		mu.Lock()
+		var updatedFiles []string
+		for _, file := range imageHashes[hash] {
+			if file != path {
+				updatedFiles = append(updatedFiles, file)
+			}
+		}
+		imageHashes[hash] = updatedFiles
+		mu.Unlock()
 
 		// Send success response as JSON
 		jsonResponse := map[string]string{"message": fmt.Sprintf("image %s deleted successfully", path)}
@@ -206,6 +254,37 @@ func handler(w http.ResponseWriter, r *http.Request, config Config) {
 		w.WriteHeader(http.StatusOK)
 		w.Write(jsonResponseBytes)
 		fmt.Printf("image %s deleted successfully\n", path)
+	} else if strings.HasPrefix(r.URL.Path, "/autodelete") {
+		// Handle deletion of all images (pick largest file size as always)
+
+		// Perform best effort deletion operation
+		err := deleteAllImages(config)
+		if err != nil {
+			// Send error response as JSON
+			jsonResponse := map[string]string{"error": fmt.Sprintf("failed to delete all images: %v", err)}
+			jsonResponseBytes, err := json.Marshal(jsonResponse)
+			if err != nil {
+				http.Error(w, "failed to marshal JSON response", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write(jsonResponseBytes)
+			fmt.Printf("failed to delete all images: %v\n", err)
+			return
+		}
+
+		// Send success response as JSON
+		jsonResponse := map[string]string{"message": "images deletion operation done"}
+		jsonResponseBytes, err := json.Marshal(jsonResponse)
+		if err != nil {
+			http.Error(w, "failed to marshal JSON response", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(jsonResponseBytes)
+		fmt.Println("images deleted successfully")
 	} else {
 		http.NotFound(w, r)
 	}

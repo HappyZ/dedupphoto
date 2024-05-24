@@ -28,6 +28,10 @@
             margin-left: 10px;
         }
 
+        .delete-all-button {
+            margin-bottom: 10px;
+        }
+
         .success-message {
             color: green;
         }
@@ -40,6 +44,7 @@
 
 <body>
     <h1>Duplicated Files</h1>
+    <button class="delete-all-button">Delete All</button>
     <ul id="hashList">
         {{ range $index, $data := . }}
         <li>
@@ -91,6 +96,11 @@
                 });
             });
 
+            var deleteAllButton = document.querySelector(".delete-all-button");
+            deleteAllButton.addEventListener("click", function () {
+                deleteAllFiles();
+            });
+
             function fetchFiles(files) {
                 files.forEach(function (fileElement) {
                     var fileAnchor = fileElement.querySelector("a");
@@ -139,6 +149,23 @@
                         console.error("Error deleting file:", error);
                         responseDiv.textContent = "Failed to delete: " + error.message;
                         responseDiv.classList.add("error-message");
+                    });
+            }
+
+            function deleteAllFiles() {
+                fetch("autodelete", {
+                    method: "DELETE"
+                })
+                    .then(function (response) {
+                        if (response.ok) {
+                            location.reload(); // Refresh the page to reflect changes
+                        } else {
+                            alert("Failed to delete all files!");
+                        }
+                    })
+                    .catch(function (error) {
+                        console.error("Error deleting all files:", error);
+                        alert("Failed to delete all files! error: " + error);
                     });
             }
         });
